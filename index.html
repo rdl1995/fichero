@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Planilla Dinámica</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+    }
+    input, select, button {
+      padding: 8px;
+      margin: 5px 10px 5px 0;
+    }
+    form {
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    .btn-editar, .btn-eliminar {
+      margin-right: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📤 Cargar Excel o trabajar desde cero</h2>
+  <input type="file" id="archivoExcel" accept=".xlsx,.xls" />
+  <button onclick="exportarExcel()">📥 Exportar Excel actualizado</button>
+
+  <h2>Formulario</h2>
+  <form id="formulario">
+    <input type="text" id="nombre" placeholder="Nombre" required />
+    <input type="text" id="apellido" placeholder="Apellido" required />
+    <input type="text" id="celular" placeholder="Celular" required />
+    <input type="date" id="fecha" required />
+    <input type="text" id="cargo" placeholder="Cargo" required />
+    <input type="text" id="dni" placeholder="DNI" required />
+    <input type="text" id="direccion" placeholder="Dirección" required />
+    <select id="fichero" required>
+      <option value="">¿Fichero?</option>
+      <option value="Sí">Sí</option>
+      <option value="No">No</option>
+    </select>
+    <select id="modo" required>
+      <option value="">¿En blanco o en negro?</option>
+      <option value="En blanco">En blanco</option>
+      <option value="En negro">En negro</option>
+    </select>
+    <button type="submit">Guardar</button>
+  </form>
+
+  <h2>🔎 Buscar</h2>
+  <input type="text" id="inputBusqueda" placeholder="Buscar..." />
+  <select id="campoBusqueda">
+    <option value="0">Nombre</option>
+    <option value="1">Apellido</option>
+    <option value="5">DNI</option>
+    <option value="2">Celular</option>
+  </select>
+
+  <h2>📋 Planilla</h2>
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th>Nombre</th>
+        <th>Apellido</th>
+        <th>Celular</th>
+        <th>Fecha inicio</th>
+        <th>Cargo</th>
+        <th>DNI</th>
+        <th>Dirección</th>
+        <th>Fichero</th>
+        <th>Modo</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+<script>
+  const formulario = document.getElementById('formulario');
+  const tablaBody = document.querySelector('#tabla tbody');
+  let filaEditando = null;
+
+  function guardarEnLocalStorage() {
+    const filas = Array.from(tablaBody.querySelectorAll('tr'));
+    const datos = filas.map(fila => ({
+      Nombre: fila.children[0].textContent,
+      Apellido: fila.children[1].textContent,
+      Celular: fila.children[2].textContent,
+      FechaInicio: fila.children[3].textContent,
+      Cargo: fila.children[4].textContent,
+      DNI: fila.children[5].textContent,
+      Direccion: fila.children[6].textContent,
+      Fichero: fila.children[7].textContent,
+      Modo: fila.children[8].textContent
+    }));
+    localStorage.setItem('planilla', JSON.stringify(datos));
+  }
+
+  function cargarDesdeLocalStorage() {
+    const datos = JSON.parse(localStorage.getItem('planilla'));
+    if (datos) {
+      tablaBody.innerHTML = "";
+      datos.forEach(fila =>
+        agregarFila(
+          fila.Nombre, fila.Apellido, fila.Celular, fila.FechaInicio,
+          fila.Cargo, fila.DNI, fila.Direccion, fila.Fichero, fila.Modo
+        )
+      );
+    }
+  }
+
+  function agregarFila(nombre, apellido, celular, fecha, cargo, dni, direccion, fichero, modo) {
+    const fila = document.createElement('tr');
+    fila.innerHTML = `
+      <td>${nombre}</td>
+      <td>${apellido}</td>
+      <td>${celular}</td>
+      <td>${fecha}</td>
+      <td>${cargo}</td>
+      <td>${dni}</td>
+      <td>${direccion}</td>
+      <td>${fichero}</td>
+      <td>${modo}</td>
+      <td>
+        <button class="btn-editar">✏️ Editar</button>
+        <button class="btn-eliminar">🗑️ Eliminar</button>
+      </td>
+    `;
+    tablaBody.appendChild(fila);
+    actualizarEstiloFichero();
+    actualizarEstiloModo();
+    guardarEnLocalStorage();
+  }
+
+  formulario.addEventListener('submit', event => {
+    event.preventDefault();
+    const nombre = document.getElementById('nombre').value;
+    const apellido = document.getElementById('apellido').value;
+    const celular = document.getElementById('celular').value;
+    const fecha = document.getElementById('fecha').value;
+    const cargo = document.getElementById('cargo').value;
+    const dni = document.getElementById('dni').value;
+    const direccion = document.getElementById('direccion').value;
+    const fichero = document.getElementById('fichero').value;
+    const modo = document.getElementById('modo').value;
+
+    if (filaEditando) {
+      filaEditando.children[0].textContent = nombre;
+      filaEditando.children[1].textContent = apellido;
+      filaEditando.children[2].textContent = celular;
+      filaEditando.children[3].textContent = fecha;
+      filaEditando.children[4].textContent = cargo;
+      filaEditando.children[5].textContent = dni;
+      filaEditando.children[6].textContent = direccion;
+      filaEditando.children[7].textContent = fichero;
+      filaEditando.children[8].textContent = modo;
+      filaEditando = null;
+    } else {
+      agregarFila(nombre, apellido, celular, fecha, cargo, dni, direccion, fichero, modo);
+    }
+
+    formulario.reset();
+    guardarEnLocalStorage();
+    actualizarEstiloFichero();
+    actualizarEstiloModo();
+    filtrarTabla();
+  });
+
+  tablaBody.addEventListener('click', event => {
+    const boton = event.target;
+    const fila = boton.closest('tr');
+
+    if (boton.classList.contains('btn-editar')) {
+      document.getElementById('nombre').value = fila.children[0].textContent;
+      document.getElementById('apellido').value = fila.children[1].textContent;
+      document.getElementById('celular').value = fila.children[2].textContent;
+      document.getElementById('fecha').value = fila.children[3].textContent;
+      document.getElementById('cargo').value = fila.children[4].textContent;
+      document.getElementById('dni').value = fila.children[5].textContent;
+      document.getElementById('direccion').value = fila.children[6].textContent;
+      document.getElementById('fichero').value = fila.children[7].textContent;
+      document.getElementById('modo').value = fila.children[8].textContent;
+      filaEditando = fila;
+    }
+
+    if (boton.classList.contains('btn-eliminar')) {
+      fila.remove();
+      if (fila === filaEditando) {
+        formulario.reset();
+        filaEditando = null;
+      }
+      guardarEnLocalStorage();
+      filtrarTabla();
+    }
+  });
+
+  document.getElementById('archivoExcel').addEventListener('change', event => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+      tablaBody.innerHTML = "";
+      sheet.forEach(fila => agregarFila(
+        fila.Nombre, fila.Apellido, fila.Celular, fila.FechaInicio,
+        fila.Cargo, fila.DNI, fila.Direccion, fila.Fichero || "", fila.Modo || ""
+      ));
+      filtrarTabla();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  function exportarExcel() {
+    const filas = Array.from(tablaBody.querySelectorAll('tr'));
+    const datos = filas.map(fila => ({
+      Nombre: fila.children[0].textContent,
+      Apellido: fila.children[1].textContent,
+      Celular: fila.children[2].textContent,
+      FechaInicio: fila.children[3].textContent,
+      Cargo: fila.children[4].textContent,
+      DNI: fila.children[5].textContent,
+      Direccion: fila.children[6].textContent,
+      Fichero: fila.children[7].textContent,
+      Modo: fila.children[8].textContent
+    }));
+    const ws = XLSX.utils.json_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Planilla");
+    XLSX.writeFile(wb, "planilla_actualizada.xlsx");
+  }
+
+  function actualizarEstiloFichero() {
+    const filas = tablaBody.querySelectorAll('tr');
+    filas.forEach(fila => {
+      const celda = fila.children[7];
+      const valor = celda.textContent.trim().toLowerCase();
+      if (valor === 'sí' || valor === 'si') {
+        celda.style.backgroundColor = 'lightgreen';
+        celda.style.color = 'black';
+      } else if (valor === 'no') {
+        celda.style.backgroundColor = '#ff9999';
+        celda.style.color = 'black';
+      } else {
+        celda.style.backgroundColor = '';
+        celda.style.color = '';
+      }
+    });
+  }
+
+  function actualizarEstiloModo() {
+    const filas = tablaBody.querySelectorAll('tr');
+    filas.forEach(fila => {
+      const celdaModo = fila.children[8];
+      const celdaCargo = fila.children[4];
+      const valor = celdaModo.textContent.trim().toLowerCase();
+      if (valor === 'en blanco') {
+        celdaCargo.style.backgroundColor = 'lightgreen';
+        celdaCargo.style.color = 'black';
+      } else {
+        celdaCargo.style.backgroundColor = '';
+        celdaCargo.style.color = '';
+      }
+    });
+  }
+
+  const inputBusqueda = document.getElementById('inputBusqueda');
+  const campoBusqueda = document.getElementById('campoBusqueda');
+
+  function filtrarTabla() {
+    const filtro = inputBusqueda.value.toLowerCase();
+    const columna = parseInt(campoBusqueda.value);
+    const filas = tablaBody.querySelectorAll('tr');
+    filas.forEach(fila => {
+      const texto = fila.children[columna].textContent.toLowerCase();
+      fila.style.display = texto.includes(filtro) ? '' : 'none';
+    });
+  }
+
+  inputBusqueda.addEventListener('input', filtrarTabla);
+  campoBusqueda.addEventListener('change', filtrarTabla);
+
+  window.onload = () => {
+    cargarDesdeLocalStorage();
+    filtrarTabla();
+  };
+</script>
+
+</body>
+</html>
